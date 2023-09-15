@@ -526,7 +526,7 @@ if !empty(s:nested)
     call vimwiki#base#nested_syntax(s:vim_syntax,
           \ vimwiki#vars#get_syntaxlocal('rxPreStart').'\%(.*[[:blank:][:punct:]]\)\?'.
           \ s:hl_syntax.'\%([[:blank:][:punct:]].*\)\?',
-          \ vimwiki#vars#get_syntaxlocal('rxPreEnd'), 'VimwikiPre')
+          \ vimwiki#vars#get_syntaxlocal('rxPreEnd'), 'VimwikiPreDelim')
   endfor
 endif
 

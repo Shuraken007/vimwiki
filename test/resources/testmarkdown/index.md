@@ -1,3 +1,10 @@
+``` vim
+if empty(glob($XDG_CONFIG_HOME . '/vim/autoload/plug.vim'))
+   silent !curl -fLo ~/.config/vim/autoload/plug.vim --create-dirs
+   \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+   autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
+endif
+```
 # Test Wiki
 
 This test wiki exists to test various features of VimWiki.
@@ -33,7 +40,7 @@ sub,,script,,
 *italic text* or _italic text_
 ***bold_italic text*** or ___italic_bold text___
 
-## Flashy
+## Flashys
 TODO, DONE, STARTED, FIXME, FIXED, XXX.
 
 # More
