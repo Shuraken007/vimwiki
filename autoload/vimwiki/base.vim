@@ -1447,14 +1447,14 @@ function! vimwiki#base#nested_syntax(filetype, start, end, textSnipHl) abort
   " Some syntax files set up iskeyword which might scratch vimwiki a bit.
   " Let us save and restore it later.
   " let b:skip_set_iskeyword = 1
-  let is_keyword = &iskeyword
-
+  
   " Check for the existence of syntax files in the runtime path before
-  " attempting to include them.
-  " https://vi.stackexchange.com/a/10354
-  " Previously, this used a try/catch block to intercept any errors thrown
+    " attempting to include them.
+    " https://vi.stackexchange.com/a/10354
+    " Previously, this used a try/catch block to intercept any errors thrown
   " when attempting to include files. The error(s) interfered with running
   " with Vader tests (specifically, testing VimwikiSearch).
+  let is_keyword = &iskeyword
   if !empty(globpath(&runtimepath, 'syntax/'.a:filetype.'.vim'))
     execute 'syntax include @'.group.' syntax/'.a:filetype.'.vim'
   endif
@@ -1477,12 +1477,40 @@ function! vimwiki#base#nested_syntax(filetype, start, end, textSnipHl) abort
     let group='texMathZoneGroup'
   endif
 
-  let concealpre = vimwiki#vars#get_global('conceal_pre') ? ' concealends' : ''
-  execute 'syntax region textSnip'.ft.
-        \ ' matchgroup='.a:textSnipHl.
-        \ ' start="'.a:start.'" end="'.a:end.'"'.
-        \ ' contains=@'.group.' keepend'.concealpre
+  let rxPreNoEnds = vimwiki#vars#get_syntaxlocal('rxPreNoEnds')
+  if rxPreNoEnds
+    execute 'syntax region textSnip'.ft.
+    \ ' start="'.a:start.'" end="'.a:end.'"'.
+    \ ' contains=@'.group.' keepend'   
+  else
+      let concealpre = vimwiki#vars#get_global('conceal_pre') ? ' concealends' : ''
+      execute 'syntax region textSnip'.ft.
+      \ ' matchgroup='.a:textSnipHl.
+      \ ' start="'.a:start.'" end="'.a:end.'"'.
+      \ ' contains=@'.group.' keepend'.concealpre
+  endif
 
+  let pre_format = vimwiki#vars#get_syntaxlocal('pre_format')
+  if has_key(pre_format, 'one_line') && has_key(pre_format, 'lang_match_template_one_line')
+    let lang_match = pre_format.lang_match_template_one_line->substitute(
+      \ '__LANG__', a:filetype, "")
+    execute 'syntax match textSnip'.ft.'OneLine /'.lang_match.'/ contains=@'.group
+  endif
+
+  if has_key(pre_format, 'contain_groups')
+    for [group_name, spec] in pre_format.contain_groups->items()
+      let contained_in=[]
+      if spec.is_in_lang | call add(contained_in, '@'.group) | endif
+      if spec.is_in_delim && ! rxPreNoEnds | call add(contained_in, a:textSnipHl) | endif
+      if spec.is_in_preproc | call add(contained_in, 'textSnip'.ft) | endif
+      if spec.is_in_preproc | call add(contained_in, 'textSnip'.ft.'OneLine') | endif
+      let contained_in_as_str = contained_in->join(',')
+      let to_exe = printf('syntax match Vimwiki%s /%s/ containedin=%s contained',
+        \ group_name, spec.match, contained_in_as_str )
+      execute to_exe
+    endfor
+  endif
+  
   " A workaround to Issue 115: Nested Perl syntax highlighting differs from
   " regular one.
   " Perl syntax file has perlFunctionName which is usually has no effect due to
@@ -2875,12 +2903,22 @@ function! vimwiki#base#normalize_link(is_visual_mode) abort
   endif
 endfunction
 
-
 function! vimwiki#base#detect_nested_syntax() abort
   " Get nested syntax are present
   " Return: dictionary of syntaxes
-  let last_word = '\v.*<(\w+)\s*$'
-  let lines = map(filter(getline(1, '$'), 'v:val =~# "\\%({{{\\|`\\{3,\}\\|\\~\\{3,\}\\)" && v:val =~# last_word'),
+  let pre_format = vimwiki#vars#get_syntaxlocal('pre_format')
+  
+  " let last_word = '\v.*<(\w+)\s*$'
+  let last_word = pre_format.last_word
+  let nested_syntax_detect = pre_format.nested_syntax_detect
+  
+" 'last_word': '\v\s*\|\{%(lng:)?(\w*)\}.*$',
+" 'nested_syntax_detect': '\v%(^[^\|]*$\n)@<=\s*\|\{%(lng:)?\w*\}'}},
+" 'last_word': '\v.*<(\w+)\s*$',
+" 'nested_syntax_detect': '\%({{{\|`\{3,}\|\~\{3,}\)'}},
+
+  let possible_lines = filter(getline(1, '$'), 'v:val =~# nested_syntax_detect && v:val =~# last_word')
+  let lines = map(filter(getline(1, '$'), 'v:val =~# nested_syntax_detect && v:val =~# last_word'),
         \ 'substitute(v:val, last_word, "\\=submatch(1)", "")')
   let dict = {}
   for elem in lines
@@ -2889,6 +2927,23 @@ function! vimwiki#base#detect_nested_syntax() abort
   return dict
 endfunction
 
+" function! vimwiki#base#detect_nested_syntax() abort
+"   " Get nested syntax are present
+"   " Return: dictionary of syntaxes
+"   let pre_format = vimwiki#vars#get_syntaxlocal('pre_format', s:current_syntax)
+"   let nested_filter_expr = pre_format.nested_filter_expr
+"   let last_word = pre_format.last_word
+"   let lines = map(filter(getline(1, '$'), 'v:val =~# "'.nested_syntax_detect.'" && v:val =~# last_word'),
+"         \ 'substitute(v:val, last_word, "\\=submatch(1)", "")')
+"   let dict = {}
+"   let excluded = vimwiki#vars#get_global('excluded_syntaxes')
+"   for elem in lines
+"     if index(excluded, elem) < 0
+"       let dict[elem] = elem
+"     endif
+"   endfor
+"   return dict
+" endfunction
 
 function! vimwiki#base#complete_links_escaped(ArgLead, CmdLine, CursorPos) abort
   " Complete globlinks escaping

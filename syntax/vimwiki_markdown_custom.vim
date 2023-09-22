@@ -34,7 +34,6 @@ function! s:existing_mkd_refs() abort
   return keys(vimwiki#markdown_base#scan_reflinks())
 endfunction
 
-
 function! s:highlight_existing_links() abort
   " Wikilink1
   " Conditional highlighting that depends on the existence of a wiki file or

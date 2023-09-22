@@ -181,7 +181,7 @@ for s:i in range(1,6)
   " -- and syntax folding Issue #1009
   execute 'syntax match VimwikiHeader'.s:i
       \ . ' /'.vimwiki#vars#get_syntaxlocal('rxH'.s:i, s:current_syntax)
-      \ . '/ contains=VimwikiTodo,VimwikiHeaderChar,VimwikiNoExistsLink,VimwikiCode,'
+      \ . '/ contains=VimwikiTodo,VimwikiHeaderChar,VimwikiNoExistsLink,VimwikiCode'
       \ . 'VimwikiLink,VimwikiWeblink1,VimwikiWikiLink1,VimwikiList,VimwikiListTodo,@Spell'
   execute 'syntax region VimwikiH'.s:i.'Folding start=/'
       \ . vimwiki#vars#get_syntaxlocal('rxH'.s:i.'_Start', s:current_syntax).'/ end=/'
@@ -197,11 +197,11 @@ let setex_header1_re = '^\s\{0,3}[^>].*\n\s\{0,3}==\+$'
 let setex_header2_re = '^\s\{0,3}[^>].*\n\s\{0,3}--\+$'
 execute 'syntax match VimwikiHeader1'
     \ . ' /'. setex_header1_re . '/ '
-    \ 'contains=VimwikiTodo,VimwikiHeaderChar,VimwikiNoExistsLink,VimwikiCode,'.
+    \ 'contains=VimwikiTodo,VimwikiHeaderChar,VimwikiNoExistsLink,VimwikiCode'.
     \ 'VimwikiLink,@Spell'
 execute 'syntax match VimwikiHeader2'
     \ . ' /'. setex_header2_re . '/ ' .
-    \ 'contains=VimwikiTodo,VimwikiHeaderChar,VimwikiNoExistsLink,VimwikiCode,'.
+    \ 'contains=VimwikiTodo,VimwikiHeaderChar,VimwikiNoExistsLink,VimwikiCode'.
     \ 'VimwikiLink,@Spell'
 
 
@@ -242,7 +242,7 @@ execute 'syntax match VimwikiTodo /'. vimwiki#vars#get_wikilocal('rx_todo') .'/'
 
 
 " Table:
-syntax match VimwikiTableRow /^\s*|.\+|\s*$/
+syntax match VimwikiTableRow /^\s*\zs|.\+|\s*$/
       \ transparent contains=VimwikiCellSeparator,
                            \ VimwikiLinkT,
                            \ VimwikiNoExistsLinkT,
@@ -266,10 +266,33 @@ syntax match VimwikiCellSeparator /\%(|\)\|\%(-\@<=+\-\@=\)\|\%([|+]\@<=-\+\)/ c
 execute 'syntax match VimwikiHR /'.vimwiki#vars#get_syntaxlocal('rxHR').'/'
 
 " Preformated Text: `like that`
+let pre_format = vimwiki#vars#get_syntaxlocal('pre_format')
 let concealpre = vimwiki#vars#get_global('conceal_pre') ? ' concealends' : ''
-execute 'syntax region VimwikiPre matchgroup=VimwikiPreDelim start=/'.vimwiki#vars#get_syntaxlocal('rxPreStart').
-      \ '/ end=/'.vimwiki#vars#get_syntaxlocal('rxPreEnd').'/ contains=@NoSpell'.concealpre
+if vimwiki#vars#get_syntaxlocal('rxPreNoEnds')
+  execute 'syntax region VimwikiPre start=/'.vimwiki#vars#get_syntaxlocal('rxPreStart').
+        \ '/ end=/'.vimwiki#vars#get_syntaxlocal('rxPreEnd').'/ contains=@NoSpell'
+else
+  execute 'syntax region VimwikiPre matchgroup=VimwikiPreDelim start=/'.vimwiki#vars#get_syntaxlocal('rxPreStart').
+        \ '/ end=/'.vimwiki#vars#get_syntaxlocal('rxPreEnd').'/ contains=@NoSpell'.concealpre
+end
 
+if has_key(pre_format, 'one_line')
+  execute 'syntax match VimwikiPreOneLine /'.pre_format.one_line.'/ contains=@NoSpell'
+endif
+
+" Add special chars inside block
+if has_key(pre_format, 'contain_groups')
+  for [group_name, spec] in pre_format.contain_groups->items()
+    let contained_in=[]
+    if spec.is_in_delim | call add(contained_in, 'VimwikiPreDelim') | endif
+    if spec.is_in_preproc | call add(contained_in, 'VimwikiPre') | endif
+    if spec.is_in_preproc | call add(contained_in, 'VimwikiPreOneLine') | endif
+    let contained_in_as_str = contained_in->join(',')
+    let to_exe = printf('syntax match Vimwiki%s /%s/ containedin=%s contained',
+      \ group_name, spec.match, contained_in_as_str )
+    execute to_exe
+  endfor
+endif
 " Equation Text: $like that$
 execute 'syntax region VimwikiMath start=/'.vimwiki#vars#get_syntaxlocal('rxMathStart').
       \ '/ end=/'.vimwiki#vars#get_syntaxlocal('rxMathEnd').'/ contains=@NoSpell'
@@ -508,9 +531,6 @@ hi def link TodoDueDate VimWikiBold
 hi def link TodoProject Constant
 hi def link TodoContext Statement
 
-" Load syntax-specific functionality
-call vimwiki#u#reload_regexes_custom()
-
 
 " FIXME it now does not make sense to pretend there is a single syntax "vimwiki"
 let b:current_syntax='vimwiki'
@@ -521,15 +541,27 @@ let s:nested = vimwiki#vars#get_wikilocal('nested_syntaxes')
 if vimwiki#vars#get_wikilocal('automatic_nested_syntaxes')
   let s:nested = extend(s:nested, vimwiki#base#detect_nested_syntax(), 'keep')
 endif
+
+let pre_format = vimwiki#vars#get_syntaxlocal('pre_format')
+let lang_match_template = has_key(pre_format, 'lang_match_template')
+  \ && pre_format.lang_match_template
+
 if !empty(s:nested)
   for [s:hl_syntax, s:vim_syntax] in items(s:nested)
+    let nested_lang_start = '\%(.*[[:blank:][:punct:]]\)\?'.
+      \ s:hl_syntax.'\%([[:blank:][:punct:]].*\)\?'
+    if has_key(pre_format, 'lang_match_template')
+      let nested_lang_start = pre_format.lang_match_template->substitute(
+        \ '__LANG__', s:hl_syntax, '')
+    endif
     call vimwiki#base#nested_syntax(s:vim_syntax,
-          \ vimwiki#vars#get_syntaxlocal('rxPreStart').'\%(.*[[:blank:][:punct:]]\)\?'.
-          \ s:hl_syntax.'\%([[:blank:][:punct:]].*\)\?',
-          \ vimwiki#vars#get_syntaxlocal('rxPreEnd'), 'VimwikiPreDelim')
+    \ vimwiki#vars#get_syntaxlocal('rxPreStart').nested_lang_start,
+    \ vimwiki#vars#get_syntaxlocal('rxPreEnd'), 'VimwikiPreDelim')
   endfor
 endif
 
+" Load syntax-specific functionality
+call vimwiki#u#reload_regexes_custom()
 " Include: Yaml metadata block for pandoc
 let a_yaml_delimiter = vimwiki#vars#get_syntaxlocal('yaml_metadata_block')
 for [rx_start, rx_end] in a_yaml_delimiter
@@ -537,7 +569,7 @@ for [rx_start, rx_end] in a_yaml_delimiter
         \ 'yaml',
         \ rx_start,
         \ rx_end,
-        \ 'VimwikiPre')
+        \ 'VimwikiPreDelim')
 endfor
 
 

@@ -1,17 +1,27 @@
-``` vim
+```{vim}
 if empty(glob($XDG_CONFIG_HOME . '/vim/autoload/plug.vim'))
    silent !curl -fLo ~/.config/vim/autoload/plug.vim --create-dirs
    \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
    autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
 endif
 ```
+```vim
+	mylist
+	\ ->filter(filterexpr)
+	\ ->map(mapexpr)
+	\ ->sort()
+	\ ->join()
+```
+
 # Test Wiki
 
 This test wiki exists to test various features of VimWiki.
 
+
 VimWiki Developers: Feel free to *add* to this wiki for additional test features.
 
-Foo bar
+Foo bar 
+
 foo bar
 biz baz
 foo\bar
