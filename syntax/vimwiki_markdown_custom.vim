@@ -148,11 +148,11 @@ execute 'syn match VimwikiWeblink1Char "'.
 execute 'syn match VimwikiWeblink1Char "'.
             \ vimwiki#vars#get_syntaxlocal('rxWeblink1Suffix1').'"'.s:options
 "image
-execute 'syn match VimwikiImageChar "!"'.s:options
+execute 'syn match VimwikiImageChar "!" cchar= '.s:options
 execute 'syn match VimwikiImageChar "'.
-            \ vimwiki#vars#get_syntaxlocal('rxWeblink1Prefix1').'"'.s:options
+            \ vimwiki#vars#get_syntaxlocal('rxWeblink1Prefix1').'" cchar= '.s:options
 execute 'syn match VimwikiImageChar "'.
-            \ vimwiki#vars#get_syntaxlocal('rxWeblink1Suffix1').'"'.s:options
+            \ vimwiki#vars#get_syntaxlocal('rxWeblink1Suffix1').'" cchar='.s:options
 
 if exists('+conceallevel')
   syntax conceal off

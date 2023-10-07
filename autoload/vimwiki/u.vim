@@ -417,7 +417,6 @@ function! vimwiki#u#hi_typeface(dic) abort
   " Bold > Italic > Underline
 
   let nested = vimwiki#u#get_syntax_dic().nested
-
   " Bold Italic
   if has_key(a:dic, 'bold_italic')
     for bi in a:dic['bold_italic']

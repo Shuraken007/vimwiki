@@ -228,7 +228,9 @@ function! s:get_wikifile_link(wikifile) abort
 endfunction
 
 function! vimwiki#path#PasteLink(wikifile) abort
-  call append(line('.'), '[[/'.s:get_wikifile_link(a:wikifile).']]')
+  let prefix = vimwiki#vars#get_wikilocal('wikilink_prefix')
+  let suffix = vimwiki#vars#get_wikilocal('wikilink_suffix')
+  call append(line('.'), 'prefix/'.s:get_wikifile_link(a:wikifile).'suffix')
 endfunction
 
 

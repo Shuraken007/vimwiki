@@ -292,7 +292,6 @@ function! vimwiki#base#resolve_link(link_text, ...) abort
   endif
 
   let link_infos.filename = vimwiki#path#normalize(link_infos.filename)
-
   return link_infos
 endfunction
 
@@ -373,7 +372,6 @@ function! vimwiki#base#open_link(cmd, link, ...) abort
   endif
 
   let is_wiki_link = s:is_wiki_link(link_infos)
-
   let vimwiki_prev_link = []
   " update previous link for wiki pages
   if is_wiki_link
@@ -890,7 +888,6 @@ function! s:jump_to_anchor(anchor) abort
     " Craft segment pattern so that it is case insensitive and also matches dashes
     " in anchor link with spaces in heading
     let [segment_norm_re, segment_nb, segment_suffix] = vimwiki#base#unnormalize_anchor(segment)
-
     " Try once with suffix (If header ends with number)
     let res =  s:jump_to_segment(segment, segment_norm_re . segment_suffix, 1)
     " Try segment_nb times otherwise
@@ -1479,12 +1476,12 @@ function! vimwiki#base#nested_syntax(filetype, start, end, textSnipHl) abort
 
   let rxPreNoEnds = vimwiki#vars#get_syntaxlocal('rxPreNoEnds')
   if rxPreNoEnds
-    execute 'syntax region textSnip'.ft.
+    execute 'syntax region textSnip'.
     \ ' start="'.a:start.'" end="'.a:end.'"'.
     \ ' contains=@'.group.' keepend'   
   else
       let concealpre = vimwiki#vars#get_global('conceal_pre') ? ' concealends' : ''
-      execute 'syntax region textSnip'.ft.
+      execute 'syntax region textSnip'.
       \ ' matchgroup='.a:textSnipHl.
       \ ' start="'.a:start.'" end="'.a:end.'"'.
       \ ' contains=@'.group.' keepend'.concealpre
@@ -1494,7 +1491,7 @@ function! vimwiki#base#nested_syntax(filetype, start, end, textSnipHl) abort
   if has_key(pre_format, 'one_line') && has_key(pre_format, 'lang_match_template_one_line')
     let lang_match = pre_format.lang_match_template_one_line->substitute(
       \ '__LANG__', a:filetype, "")
-    execute 'syntax match textSnip'.ft.'OneLine /'.lang_match.'/ contains=@'.group
+    execute 'syntax match textSnip'.'OneLine /'.lang_match.'/ contains=@'.group
   endif
 
   if has_key(pre_format, 'contain_groups')
@@ -1502,10 +1499,21 @@ function! vimwiki#base#nested_syntax(filetype, start, end, textSnipHl) abort
       let contained_in=[]
       if spec.is_in_lang | call add(contained_in, '@'.group) | endif
       if spec.is_in_delim && ! rxPreNoEnds | call add(contained_in, a:textSnipHl) | endif
-      if spec.is_in_preproc | call add(contained_in, 'textSnip'.ft) | endif
-      if spec.is_in_preproc | call add(contained_in, 'textSnip'.ft.'OneLine') | endif
+      if spec.is_in_preproc | call add(contained_in, 'textSnip') | endif
       let contained_in_as_str = contained_in->join(',')
       let to_exe = printf('syntax match Vimwiki%s /%s/ containedin=%s contained',
+        \ group_name, spec.match, contained_in_as_str )
+      execute to_exe
+    endfor
+
+    for [group_name, spec] in pre_format.contain_groups->items()
+      if ! spec.is_in_preproc | continue | endif
+
+      let contained_in=[]
+      if spec.is_in_lang | call add(contained_in, '@'.group) | endif
+      if spec.is_in_preproc | call add(contained_in, 'textSnip'.'OneLine') | endif
+      let contained_in_as_str = contained_in->join(',')
+      let to_exe = printf('syntax match Vimwiki%sOneLine /%s/ containedin=%s contained',
         \ group_name, spec.match, contained_in_as_str )
       execute to_exe
     endfor
@@ -1716,7 +1724,7 @@ function! vimwiki#base#follow_link(split, ...) abort
       endif
     endif
   endif
-
+  
   " If cursor is indeed on a link
   if lnk !=? ''
     let processed_by_user_defined_handler = VimwikiLinkHandler(lnk)
@@ -2811,13 +2819,13 @@ function! s:normalize_link_syntax_n() abort
     let sub = vimwiki#base#normalize_link_helper(lnk,
           \ vimwiki#vars#get_syntaxlocal('rxWikiLinkMatchUrl'),
           \ vimwiki#vars#get_syntaxlocal('rxWikiLinkMatchDescr'),
-          \ vimwiki#vars#get_global('WikiLinkTemplate2'))
+          \ vimwiki#vars#get_syntaxlocal('WikiLinkTemplate2'))
     call vimwiki#base#replacestr_at_cursor(vimwiki#vars#get_syntaxlocal('rxWikiLink'), sub)
     return
   endif
 
   " try WikiIncl
-  let lnk = vimwiki#base#matchstr_at_cursor(vimwiki#vars#get_global('rxWikiIncl'))
+  let lnk = vimwiki#base#matchstr_at_cursor(vimwiki#vars#get_syntaxlocal('rxWikiIncl'))
   if !empty(lnk)
     " NO-OP !!
     return
@@ -2827,7 +2835,7 @@ function! s:normalize_link_syntax_n() abort
   let lnk = vimwiki#base#matchstr_at_cursor(vimwiki#vars#get_syntaxlocal('rxWeblink'))
   if !empty(lnk)
     let sub = vimwiki#base#normalize_link_helper(lnk,
-          \ lnk, '', vimwiki#vars#get_global('WikiLinkTemplate2'))
+          \ lnk, '', vimwiki#vars#get_syntaxlocal('WikiLinkTemplate2'))
     call vimwiki#base#replacestr_at_cursor(vimwiki#vars#get_syntaxlocal('rxWeblink'), sub)
     return
   endif
@@ -2835,13 +2843,13 @@ function! s:normalize_link_syntax_n() abort
   " try Word (any characters except separators)
   " rxWord is less permissive than rxWikiLinkUrl which is used in
   " normalize_link_syntax_v
-  let lnk = vimwiki#base#matchstr_at_cursor(vimwiki#vars#get_global('rxWord'))
+  let lnk = vimwiki#base#matchstr_at_cursor(vimwiki#vars#get_syntaxlocal('rxWord'))
   if !empty(lnk)
     if vimwiki#base#is_diary_file(expand('%:p'))
       let sub = vimwiki#base#normalize_link_in_diary(lnk)
     else
       let sub = s:safesubstitute(
-            \ vimwiki#vars#get_global('WikiLinkTemplate1'), '__LinkUrl__', lnk, '')
+            \ vimwiki#vars#get_syntaxlocal('WikiLinkTemplate1'), '__LinkUrl__', lnk, '')
     endif
     " Replace file extension
     let file_extension = vimwiki#vars#get_wikilocal('ext', vimwiki#vars#get_bufferlocal('wiki_nr'))

@@ -516,7 +516,7 @@ function! s:get_prev_line(lnum) abort
   endif
 
   let prev_line = prevnonblank(cur_ln)
-
+  
   if prev_line < 0 || prev_line > line('$') ||
         \ getline(prev_line) =~# vimwiki#vars#get_syntaxlocal('rxHeader')
     return 0

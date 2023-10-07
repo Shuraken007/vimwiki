@@ -286,17 +286,21 @@ if has_key(pre_format, 'contain_groups')
     let contained_in=[]
     if spec.is_in_delim | call add(contained_in, 'VimwikiPreDelim') | endif
     if spec.is_in_preproc | call add(contained_in, 'VimwikiPre') | endif
-    if spec.is_in_preproc | call add(contained_in, 'VimwikiPreOneLine') | endif
     let contained_in_as_str = contained_in->join(',')
     let to_exe = printf('syntax match Vimwiki%s /%s/ containedin=%s contained',
       \ group_name, spec.match, contained_in_as_str )
     execute to_exe
   endfor
+  for [group_name, spec] in pre_format.contain_groups->items()
+    if ! spec.is_in_preproc | continue | endif
+    let contained_in=[]
+    if spec.is_in_preproc | call add(contained_in, 'VimwikiPreOneLine') | endif
+    let contained_in_as_str = contained_in->join(',')
+    let to_exe = printf('syntax match Vimwiki%sOneLine /%s/ containedin=%s contained',
+      \ group_name, spec.match, contained_in_as_str )
+    execute to_exe
+  endfor
 endif
-" Equation Text: $like that$
-execute 'syntax region VimwikiMath start=/'.vimwiki#vars#get_syntaxlocal('rxMathStart').
-      \ '/ end=/'.vimwiki#vars#get_syntaxlocal('rxMathEnd').'/ contains=@NoSpell'
-
 
 " Placeholder:
 syntax match VimwikiPlaceholder /^\s*%nohtml\s*$/
@@ -572,28 +576,36 @@ for [rx_start, rx_end] in a_yaml_delimiter
         \ 'VimwikiPreDelim')
 endfor
 
+function! s:add_latex() abort
+  " Equation Text: $like that$
+  execute 'syntax region VimwikiMath start=/'.vimwiki#vars#get_syntaxlocal('rxMathStart').
+        \ '/ end=/'.vimwiki#vars#get_syntaxlocal('rxMathEnd').'/ contains=@NoSpell'
 
-" LaTex: Load
-if !empty(globpath(&runtimepath, 'syntax/tex.vim'))
-  execute 'syntax include @textGrouptex syntax/tex.vim'
-endif
-if !empty(globpath(&runtimepath, 'after/syntax/tex.vim'))
-  execute 'syntax include @textGrouptex after/syntax/tex.vim'
-endif
+  " LaTex: Load
+  if !empty(globpath(&runtimepath, 'syntax/tex.vim'))
+    execute 'syntax include @textGrouptex syntax/tex.vim'
+  endif
+  if !empty(globpath(&runtimepath, 'after/syntax/tex.vim'))
+    execute 'syntax include @textGrouptex after/syntax/tex.vim'
+  endif
 
-" LaTeX: Block
-call vimwiki#base#nested_syntax('tex',
-      \ vimwiki#vars#get_syntaxlocal('rxMathStart').'\%(.*[[:blank:][:punct:]]\)\?'.
-      \ '\%([[:blank:][:punct:]].*\)\?',
-      \ vimwiki#vars#get_syntaxlocal('rxMathEnd'), 'VimwikiMath')
+  " LaTeX: Block
+  call vimwiki#base#nested_syntax('tex',
+        \ vimwiki#vars#get_syntaxlocal('rxMathStart').'\%(.*[[:blank:][:punct:]]\)\?'.
+        \ '\%([[:blank:][:punct:]].*\)\?',
+        \ vimwiki#vars#get_syntaxlocal('rxMathEnd'), 'VimwikiMath')
 
-" LaTeX: Inline
-for u in syntax_dic.typeface.eq
-  execute 'syntax region textSniptex  matchgroup=texSnip'
-        \ . ' start="'.u[0].'" end="'.u[1].'"'
-        \ . ' contains=@texMathZoneGroup'
-        \ . ' keepend oneline '. b:vimwiki_syntax_concealends
-endfor
+  " LaTeX: Inline
+  for u in syntax_dic.typeface.eq
+    execute 'syntax region textSniptex  matchgroup=texSnip'
+          \ . ' start="'.u[0].'" end="'.u[1].'"'
+          \ . ' contains=@texMathZoneGroup'
+          \ . ' keepend oneline '. b:vimwiki_syntax_concealends
+  endfor
+endfunction
+
+" latex overrides code with ${...}
+" call s:add_latex()
 
 " Emoji: :dog: (after tags to take precedence, after nested to not be reset)
 if and(vimwiki#vars#get_global('emoji_enable'), 1) != 0 && has('conceal')

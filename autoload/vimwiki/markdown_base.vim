@@ -47,7 +47,6 @@ function! vimwiki#markdown_base#open_reflink(link) abort
   endif
 endfunction
 
-
 function! s:normalize_link_syntax_n() abort
   let lnum = line('.')
 
